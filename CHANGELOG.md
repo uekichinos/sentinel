@@ -2,6 +2,13 @@
 
 All notable changes to `@uekichinos/sentinel` are documented here.
 
+## [0.2.0] - 2026-04-12
+### Added
+- `sentinel.getRemainingMs()` — returns milliseconds until idle; useful for countdown indicators and progress bars
+- `notify.body` factory function — `body` can now be `() => unknown`, evaluated at idle time rather than at init; useful for capturing dynamic state (e.g. current user ID or session ID)
+- Async `notify.headers` support — `headers` function can now return `Promise<Record<string, string>>`, enabling async token refresh before the idle request fires
+- 17 new tests covering the above additions (45 total)
+
 ## [0.1.0] - 2026-04-12
 ### Added
 - Initial release

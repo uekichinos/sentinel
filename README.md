@@ -66,6 +66,18 @@ Restarts the idle countdown from zero. If currently idle, transitions back to ac
 
 Returns `true` if the user is currently idle.
 
+### `sentinel.getRemainingMs()`
+
+Returns the number of milliseconds remaining until the user is considered idle. Returns `0` when already idle or when the sentinel has not been started.
+
+Useful for building countdown indicators or progress bars:
+
+```js
+setInterval(() => {
+  progressBar.style.width = `${(sentinel.getRemainingMs() / timeoutMs) * 100}%`
+}, 100)
+```
+
 ---
 
 ## Options
@@ -119,17 +131,26 @@ const sentinel = createSentinel({
 |--------|------|---------|-------------|
 | `url` | `string` | — | Endpoint to call |
 | `method` | `string` | `'POST'` | HTTP method |
-| `headers` | `Record<string, string> \| () => Record<string, string>` | — | Static or dynamic headers |
-| `body` | `unknown` | — | Request body — serialised to JSON |
+| `headers` | `Record<string, string> \| () => Record<string, string> \| Promise<Record<string, string>>` | — | Static or dynamic headers (sync or async) |
+| `body` | `unknown \| () => unknown` | — | Request body — serialised to JSON, or a factory evaluated at idle time |
 
-**Headers as a function** — the function is called at the moment idle fires, not at init. This ensures you always send a fresh token rather than one captured when the page loaded.
+**Headers as a function** — the function is called at the moment idle fires, not at init. Supports both sync and async functions. This ensures you always send a fresh token rather than one captured when the page loaded.
 
 ```js
 // Token captured at init — may be stale after a refresh
 headers: { Authorization: `Bearer ${getToken()}` }
 
-// Token evaluated at idle time — always fresh
+// Token evaluated at idle time — always fresh (sync)
 headers: () => ({ Authorization: `Bearer ${getToken()}` })
+
+// Async token refresh — awaited before the request fires
+headers: async () => ({ Authorization: `Bearer ${await refreshToken()}` })
+```
+
+**Body as a function** — like headers, a body factory is evaluated at idle time rather than at init. Useful for capturing dynamic state:
+
+```js
+body: () => ({ userId: store.user.id, sessionId: store.session.id })
 ```
 
 The notify request fails silently on network error — `onIdle` always fires regardless.
@@ -179,6 +200,20 @@ const sentinel = createSentinel({
 
 pollInterval = setInterval(fetchData, 5000)
 sentinel.start()
+```
+
+### Countdown indicator
+
+```js
+const TIMEOUT_MS = 15 * 60 * 1000 // 15m in ms
+
+const sentinel = createSentinel({ timeout: TIMEOUT_MS })
+sentinel.start()
+
+setInterval(() => {
+  const pct = (sentinel.getRemainingMs() / TIMEOUT_MS) * 100
+  progressBar.style.width = `${pct}%`
+}, 200)
 ```
 
 ### Stop on page unload

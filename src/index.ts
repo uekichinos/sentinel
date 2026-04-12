@@ -6,14 +6,20 @@ export type { SentinelOptions, SentinelInstance, NotifyOptions, TtlInput } from 
 const DEFAULT_EVENTS = ['mousemove', 'keydown', 'scroll', 'click', 'touchstart']
 const DEFAULT_THROTTLE = 500
 
-function resolveHeaders(headers: NotifyOptions['headers']): Record<string, string> {
+async function resolveHeaders(headers: NotifyOptions['headers']): Promise<Record<string, string>> {
   if (!headers) return {}
-  return typeof headers === 'function' ? headers() : headers
+  const result = typeof headers === 'function' ? headers() : headers
+  return result instanceof Promise ? await result : result
+}
+
+function resolveBody(body: NotifyOptions['body']): unknown {
+  return typeof body === 'function' ? (body as () => unknown)() : body
 }
 
 async function fireNotify(notify: NotifyOptions): Promise<void> {
-  const headers = resolveHeaders(notify.headers)
-  const hasBody = notify.body !== undefined
+  const headers = await resolveHeaders(notify.headers)
+  const body = resolveBody(notify.body)
+  const hasBody = body !== undefined
 
   try {
     await fetch(notify.url, {
@@ -22,7 +28,7 @@ async function fireNotify(notify: NotifyOptions): Promise<void> {
         ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
         ...headers,
       },
-      ...(hasBody ? { body: JSON.stringify(notify.body) } : {}),
+      ...(hasBody ? { body: JSON.stringify(body) } : {}),
     })
   } catch {
     // fail silently — never block the idle callback
@@ -56,14 +62,17 @@ export function createSentinel(options: SentinelOptions): SentinelInstance {
   const watchVisibility = options.watchVisibility ?? true
 
   let timer: ReturnType<typeof setTimeout> | null = null
+  let timerTarget: number | null = null
   let idle = false
   let started = false
   let lastActivity = 0
 
   function scheduleIdle(): void {
     if (timer !== null) clearTimeout(timer)
+    timerTarget = Date.now() + timeoutMs
     timer = setTimeout(() => {
       timer = null
+      timerTarget = null
       idle = true
       options.onIdle?.()
       if (options.notify) fireNotify(options.notify)
@@ -144,6 +153,11 @@ export function createSentinel(options: SentinelOptions): SentinelInstance {
 
     isIdle(): boolean {
       return idle
+    },
+
+    getRemainingMs(): number {
+      if (idle || !started || timerTarget === null) return 0
+      return Math.max(0, timerTarget - Date.now())
     },
   }
 }

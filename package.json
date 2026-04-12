@@ -1,6 +1,6 @@
 {
   "name": "@uekichinos/sentinel",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Lightweight idle detection for the browser. Fires callbacks and optionally notifies a backend when the user goes inactive. Supports TTL timeouts, tab visibility pausing, activity throttling, and dynamic auth headers. Zero dependencies.",
   "keywords": [
     "uekichinos",

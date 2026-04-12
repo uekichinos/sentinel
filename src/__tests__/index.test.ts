@@ -201,6 +201,55 @@ describe('createSentinel — stop and reset', () => {
   })
 })
 
+// --- getRemainingMs ---
+
+describe('createSentinel — getRemainingMs', () => {
+  it('returns approximately full timeout right after start', () => {
+    const sentinel = makeSentinel({ timeout: 1000 })
+    sentinel.start()
+    const remaining = sentinel.getRemainingMs()
+    expect(remaining).toBeGreaterThan(990)
+    expect(remaining).toBeLessThanOrEqual(1000)
+  })
+
+  it('decreases over time', () => {
+    const sentinel = makeSentinel({ timeout: 1000 })
+    sentinel.start()
+    vi.advanceTimersByTime(400)
+    const remaining = sentinel.getRemainingMs()
+    expect(remaining).toBeGreaterThan(590)
+    expect(remaining).toBeLessThanOrEqual(600)
+  })
+
+  it('returns 0 when idle', () => {
+    const sentinel = makeSentinel({ timeout: 1000 })
+    sentinel.start()
+    vi.advanceTimersByTime(1000)
+    expect(sentinel.getRemainingMs()).toBe(0)
+  })
+
+  it('returns 0 when not started', () => {
+    const sentinel = makeSentinel({ timeout: 1000 })
+    expect(sentinel.getRemainingMs()).toBe(0)
+  })
+
+  it('returns 0 after stop', () => {
+    const sentinel = makeSentinel({ timeout: 1000 })
+    sentinel.start()
+    sentinel.stop()
+    expect(sentinel.getRemainingMs()).toBe(0)
+  })
+
+  it('resets after activity', () => {
+    const sentinel = makeSentinel({ timeout: 1000, throttle: 0 })
+    sentinel.start()
+    vi.advanceTimersByTime(700)
+    document.dispatchEvent(new Event('click'))
+    const remaining = sentinel.getRemainingMs()
+    expect(remaining).toBeGreaterThan(990)
+  })
+})
+
 // --- tab visibility ---
 
 describe('createSentinel — watchVisibility', () => {
@@ -363,6 +412,50 @@ describe('createSentinel — notify', () => {
     await vi.runAllTimersAsync()
 
     expect(fetchMock.mock.calls[0][1].method).toBe('PATCH')
+  })
+
+  it('resolves async headers function before sending request', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal('fetch', fetchMock)
+
+    let token = 'initial-token'
+    const asyncHeadersFn = vi.fn(async () => {
+      token = 'async-token'
+      return { Authorization: `Bearer ${token}` }
+    })
+
+    const sentinel = makeSentinel({
+      timeout: 1000,
+      notify: { url: '/api/session/idle', headers: asyncHeadersFn },
+    })
+    sentinel.start()
+    vi.advanceTimersByTime(1000)
+    await vi.runAllTimersAsync()
+
+    expect(asyncHeadersFn).toHaveBeenCalledOnce()
+    expect(fetchMock.mock.calls[0][1].headers).toMatchObject({
+      Authorization: 'Bearer async-token',
+    })
+  })
+
+  it('evaluates body factory at idle time — not at init', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal('fetch', fetchMock)
+
+    let userId = 1
+    const bodyFn = vi.fn(() => ({ userId }))
+
+    const sentinel = makeSentinel({
+      timeout: 1000,
+      notify: { url: '/api/session/idle', body: bodyFn },
+    })
+    sentinel.start()
+    userId = 99 // changes before idle fires
+    vi.advanceTimersByTime(1000)
+    await vi.runAllTimersAsync()
+
+    expect(bodyFn).toHaveBeenCalledOnce()
+    expect(fetchMock.mock.calls[0][1].body).toBe(JSON.stringify({ userId: 99 }))
   })
 
   it('notify fires once per idle period', async () => {
