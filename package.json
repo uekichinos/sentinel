@@ -1,0 +1,72 @@
+{
+  "name": "@uekichinos/sentinel",
+  "version": "0.1.0",
+  "description": "Lightweight idle detection for the browser. Fires callbacks and optionally notifies a backend when the user goes inactive. Supports TTL timeouts, tab visibility pausing, activity throttling, and dynamic auth headers. Zero dependencies.",
+  "keywords": [
+    "uekichinos",
+    "sentinel",
+    "idle",
+    "idle-detection",
+    "inactivity",
+    "session-timeout",
+    "auto-logout",
+    "user-activity",
+    "visibility"
+  ],
+  "author": {
+    "name": "uekichinos",
+    "url": "https://www.npmjs.com/~uekichinos"
+  },
+  "homepage": "https://github.com/uekichinos/sentinel#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/uekichinos/sentinel.git"
+  },
+  "bugs": {
+    "url": "https://github.com/uekichinos/sentinel/issues"
+  },
+  "license": "MIT",
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/uekichinos"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist/*.js",
+    "dist/*.cjs",
+    "dist/*.d.ts",
+    "dist/*.d.cts",
+    "dist/*.global.js",
+    "CHANGELOG.md",
+    "SECURITY.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "prepublishOnly": "pnpm build && pnpm test",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "happy-dom": "^20.8.9",
+    "tsup": "^8.2.4",
+    "typescript": "^5.5.4",
+    "vitest": "^3.2.4"
+  }
+}
