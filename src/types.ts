@@ -7,11 +7,14 @@ export type NotifyOptions = {
   method?: string
   /**
    * Headers to include in the request.
-   * Pass a function to evaluate headers at call time — useful for dynamic tokens.
+   * Pass a function (sync or async) to evaluate headers at call time — useful for dynamic or refreshed tokens.
    */
-  headers?: Record<string, string> | (() => Record<string, string>)
-  /** Optional request body — serialised to JSON */
-  body?: unknown
+  headers?: Record<string, string> | (() => Record<string, string> | Promise<Record<string, string>>)
+  /**
+   * Optional request body — serialised to JSON.
+   * Pass a function to evaluate the body at idle time — useful for capturing dynamic state.
+   */
+  body?: unknown | (() => unknown)
 }
 
 export type SentinelOptions = {
@@ -40,4 +43,6 @@ export type SentinelInstance = {
   reset(): void
   /** Returns true if the user is currently idle */
   isIdle(): boolean
+  /** Returns milliseconds remaining until idle. Returns 0 when already idle or not started. */
+  getRemainingMs(): number
 }
