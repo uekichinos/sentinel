@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>@uekichinos/sentinel — Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f0f13;
+      color: #f0f0f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1.5rem;
+      gap: 2rem;
+    }
+
+    /* ── Header ──────────────────────────────────────────────── */
+    .header {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .eyebrow {
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #888;
+    }
+
+    h1 {
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      font-weight: 800;
+    }
+
+    .sub {
+      font-size: 1rem;
+      color: #888;
+    }
+
+    /* ── Status card ─────────────────────────────────────────── */
+    .status-card {
+      width: 100%;
+      max-width: 520px;
+      background: #1a1a24;
+      border: 1px solid #2a2a38;
+      border-radius: 1.25rem;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .status-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #666;
+    }
+
+    .badge {
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 0.3em 0.9em;
+      border-radius: 999px;
+      letter-spacing: 0.05em;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .badge--active  { background: #14532d; color: #4ade80; }
+    .badge--idle    { background: #7f1d1d; color: #f87171; }
+
+    /* ── Countdown bar ───────────────────────────────────────── */
+    .bar-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .bar-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: #666;
+    }
+
+    .bar-track {
+      height: 8px;
+      background: #2a2a38;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: #60a5fa;
+      transition: width 0.2s linear, background 0.3s;
+      width: 100%;
+    }
+
+    .bar-fill--idle { background: #f87171; width: 0% !important; }
+
+    /* ── Config ──────────────────────────────────────────────── */
+    .config-card {
+      width: 100%;
+      max-width: 520px;
+      background: #1a1a24;
+      border: 1px solid #2a2a38;
+      border-radius: 1.25rem;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .config-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #555;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    label {
+      font-size: 0.8rem;
+      color: #888;
+    }
+
+    .field-row {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    input[type="number"], select {
+      background: #0f0f13;
+      border: 1px solid #2a2a38;
+      border-radius: 0.5rem;
+      color: #f0f0f0;
+      padding: 0.45rem 0.75rem;
+      font-size: 0.9rem;
+      width: 120px;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: #60a5fa;
+    }
+
+    .range-val {
+      font-size: 0.85rem;
+      color: #aaa;
+      min-width: 3.5rem;
+      text-align: right;
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      width: 100%;
+      max-width: 520px;
+    }
+
+    button {
+      flex: 1;
+      padding: 0.65rem 1.25rem;
+      border-radius: 0.6rem;
+      border: 1px solid #2a2a38;
+      background: #1a1a24;
+      color: #f0f0f0;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    button:hover { background: #22222e; border-color: #3a3a50; }
+
+    button.primary {
+      background: #1d3a5f;
+      border-color: #2563eb;
+      color: #93c5fd;
+    }
+
+    button.primary:hover { background: #1e4080; }
+
+    button.danger {
+      background: #3b1212;
+      border-color: #7f1d1d;
+      color: #fca5a5;
+    }
+
+    button.danger:hover { background: #4c1515; }
+
+    /* ── Notify log ──────────────────────────────────────────── */
+    .log-card {
+      width: 100%;
+      max-width: 520px;
+      background: #1a1a24;
+      border: 1px solid #2a2a38;
+      border-radius: 1.25rem;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .log-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #555;
+    }
+
+    .log {
+      font-family: monospace;
+      font-size: 0.82rem;
+      background: #0f0f13;
+      border: 1px solid #2a2a38;
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      min-height: 80px;
+      max-height: 200px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .log-entry { color: #aaa; }
+    .log-entry.idle  { color: #f87171; }
+    .log-entry.active { color: #4ade80; }
+    .log-entry.reset { color: #60a5fa; }
+    .log-entry.notify { color: #a78bfa; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <span class="eyebrow">@uekichinos/sentinel</span>
+    <h1>Idle Detection Demo</h1>
+    <p class="sub">Stop interacting with the page — the countdown will reach zero.</p>
+  </div>
+
+  <!-- Status -->
+  <div class="status-card">
+    <div class="status-row">
+      <span class="status-label">User state</span>
+      <span class="badge badge--active" id="badge">Active</span>
+    </div>
+
+    <div class="bar-wrap">
+      <div class="bar-meta">
+        <span>Time until idle</span>
+        <span id="remaining">—</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" id="bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Config -->
+  <div class="config-card">
+    <span class="config-title">Configuration</span>
+
+    <div class="field">
+      <label for="timeout-input">Timeout (seconds)</label>
+      <div class="field-row">
+        <input type="range" id="timeout-range" min="5" max="60" value="15" />
+        <span class="range-val" id="timeout-display">15s</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="throttle-input">Throttle (ms)</label>
+      <div class="field-row">
+        <input type="range" id="throttle-range" min="0" max="1000" step="100" value="500" />
+        <span class="range-val" id="throttle-display">500ms</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button class="primary" id="btn-start">Start</button>
+    <button id="btn-reset">Reset countdown</button>
+    <button class="danger" id="btn-stop">Stop</button>
+  </div>
+
+  <!-- Log -->
+  <div class="log-card">
+    <span class="log-title">Event log</span>
+    <div class="log" id="log">
+      <span class="log-entry">— waiting to start —</span>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createSentinel } from '../dist/index.js'
+
+    const badge     = document.getElementById('badge')
+    const bar       = document.getElementById('bar')
+    const remaining = document.getElementById('remaining')
+    const log       = document.getElementById('log')
+
+    const timeoutRange   = document.getElementById('timeout-range')
+    const throttleRange  = document.getElementById('throttle-range')
+    const timeoutDisplay = document.getElementById('timeout-display')
+    const throttleDisplay = document.getElementById('throttle-display')
+
+    timeoutRange.addEventListener('input', () => {
+      timeoutDisplay.textContent = `${timeoutRange.value}s`
+    })
+    throttleRange.addEventListener('input', () => {
+      throttleDisplay.textContent = `${throttleRange.value}ms`
+    })
+
+    let sentinel = null
+    let timeoutMs = 0
+    let rafId = null
+
+    function addLog(msg, cls = '') {
+      const el = document.createElement('span')
+      el.className = `log-entry ${cls}`
+      const time = new Date().toLocaleTimeString()
+      el.textContent = `[${time}] ${msg}`
+      log.appendChild(el)
+      log.scrollTop = log.scrollHeight
+    }
+
+    function setIdle(isIdle) {
+      badge.textContent = isIdle ? 'Idle' : 'Active'
+      badge.className   = isIdle ? 'badge badge--idle' : 'badge badge--active'
+      if (isIdle) {
+        bar.className = 'bar-fill bar-fill--idle'
+        remaining.textContent = '0s'
+        cancelAnimationFrame(rafId)
+      }
+    }
+
+    function tick() {
+      if (!sentinel) return
+      const ms = sentinel.getRemainingMs()
+      const pct = (ms / timeoutMs) * 100
+      bar.style.width = `${pct}%`
+      remaining.textContent = `${(ms / 1000).toFixed(1)}s`
+      rafId = requestAnimationFrame(tick)
+    }
+
+    document.getElementById('btn-start').addEventListener('click', () => {
+      if (sentinel) { sentinel.stop(); cancelAnimationFrame(rafId) }
+
+      timeoutMs = parseInt(timeoutRange.value) * 1000
+      const throttle = parseInt(throttleRange.value)
+
+      log.innerHTML = ''
+      addLog(`Started — timeout: ${timeoutRange.value}s, throttle: ${throttle}ms`)
+
+      sentinel = createSentinel({
+        timeout: timeoutMs,
+        throttle,
+        notify: {
+          url: '/api/session/idle',
+          headers: () => ({ Authorization: 'Bearer demo-token' }),
+          body: () => ({ reason: 'idle', at: new Date().toISOString() }),
+        },
+        onIdle() {
+          setIdle(true)
+          addLog('onIdle fired — user is idle', 'idle')
+          addLog('notify → POST /api/session/idle (simulated)', 'notify')
+        },
+        onActive() {
+          setIdle(false)
+          bar.className = 'bar-fill'
+          addLog('onActive fired — user returned', 'active')
+          rafId = requestAnimationFrame(tick)
+        },
+      })
+
+      setIdle(false)
+      bar.className = 'bar-fill'
+      sentinel.start()
+      rafId = requestAnimationFrame(tick)
+    })
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      if (!sentinel) return
+      sentinel.reset()
+      addLog('reset() called — countdown restarted', 'reset')
+      bar.className = 'bar-fill'
+      rafId = rafId ?? requestAnimationFrame(tick)
+    })
+
+    document.getElementById('btn-stop').addEventListener('click', () => {
+      if (!sentinel) return
+      sentinel.stop()
+      cancelAnimationFrame(rafId)
+      rafId = null
+      addLog('stop() called — sentinel stopped')
+      remaining.textContent = '—'
+      bar.style.width = '0%'
+      badge.textContent = 'Stopped'
+      badge.className = 'badge'
+    })
+  </script>
+
+</body>
+</html>
