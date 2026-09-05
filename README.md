@@ -1,13 +1,20 @@
 # @uekichinos/sentinel
 
-[![Socket Badge](https://badge.socket.dev/npm/package/@uekichinos/sentinel/0.1.0)](https://socket.dev/npm/package/@uekichinos/sentinel/overview/0.1.0)
+[![Socket Badge](https://badge.socket.dev/npm/package/@uekichinos/sentinel/0.2.0)](https://socket.dev/npm/package/@uekichinos/sentinel/overview/0.2.0)
 
 Lightweight idle detection for the browser. Fires callbacks and optionally notifies a backend when the user goes inactive. Zero dependencies.
+
+- **Prompt phase** — warn the user before logging them out, no hand-rolled timer
+- **Cross-tab sync** — activity in one tab keeps every tab alive; idle fires everywhere at once
+- **Pause / resume** — freeze the countdown without losing the time remaining
+- **Backend notify** — fire a `fetch` when idle, with dynamic headers/body
 
 ```js
 const sentinel = createSentinel({
   timeout: '15m',
-  onIdle: () => showLogoutWarning(),
+  promptBeforeIdle: '1m',
+  onPrompt: () => showLogoutWarning(),
+  onIdle: () => logout(),
   onActive: () => hideLogoutWarning(),
 })
 
@@ -52,7 +59,7 @@ createSentinel(options: SentinelOptions): SentinelInstance
 
 ### `sentinel.start()`
 
-Begins listening for user activity and starts the idle countdown. Safe to call multiple times — idempotent.
+Begins listening for user activity and starts the idle countdown. Safe to call multiple times — idempotent. Pass `autoStart: true` to skip this call.
 
 ### `sentinel.stop()`
 
@@ -60,15 +67,25 @@ Removes all event listeners and cancels the countdown. Resets internal state so 
 
 ### `sentinel.reset()`
 
-Restarts the idle countdown from zero. If currently idle, transitions back to active and fires `onActive`.
+Restarts the idle countdown from zero. If currently idle or in the prompt phase, transitions back to active and fires `onActive`.
 
-### `sentinel.isIdle()`
+### `sentinel.pause()` / `sentinel.resume()`
 
-Returns `true` if the user is currently idle.
+`pause()` freezes the countdown, keeping the time remaining. `resume()` continues from exactly where it left off. Unlike `stop()` (which resets), this is for temporary suspensions — a long upload, a modal you don't want counted as activity. Activity fired while paused is ignored.
+
+```js
+sentinel.pause()   // countdown frozen at, say, 4m 12s remaining
+// ...later...
+sentinel.resume()  // continues from 4m 12s
+```
+
+### `sentinel.isIdle()` / `sentinel.isPrompted()`
+
+`isIdle()` returns `true` once the user is idle. `isPrompted()` returns `true` during the warning phase — after `onPrompt`, before `onIdle`.
 
 ### `sentinel.getRemainingMs()`
 
-Returns the number of milliseconds remaining until the user is considered idle. Returns `0` when already idle or when the sentinel has not been started.
+Returns the number of milliseconds remaining until the user is considered idle. Returns `0` when already idle, paused-and-expired, or when the sentinel has not been started.
 
 Useful for building countdown indicators or progress bars:
 
@@ -78,6 +95,18 @@ setInterval(() => {
 }, 100)
 ```
 
+### `sentinel.getLastActiveTime()` / `sentinel.getElapsedTime()`
+
+`getLastActiveTime()` is the epoch-ms timestamp of the last observed activity; `getElapsedTime()` is the milliseconds since. Both return `0` when not started.
+
+```js
+if (sentinel.getElapsedTime() > 5 * 60_000) showAwayBadge()
+```
+
+### `sentinel.isLeader()` / `sentinel.getTabId()`
+
+With `crossTab` + `leaderElection`, `isLeader()` tells you whether this tab is the elected leader (the only one that runs `notify`). `getTabId()` is this tab's stable id. `isLeader()` is always `true` when cross-tab is off.
+
 ---
 
 ## Options
@@ -85,12 +114,21 @@ setInterval(() => {
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `timeout` | `TtlInput` | — | How long before the user is considered idle |
+| `promptBeforeIdle` | `TtlInput` | — | Fire `onPrompt` this long before idle. Must be shorter than `timeout` |
 | `onIdle` | `() => void` | — | Called when the user transitions active → idle |
-| `onActive` | `() => void` | — | Called when the user transitions idle → active |
+| `onActive` | `() => void` | — | Called when the user transitions idle (or prompted) → active |
+| `onPrompt` | `() => void` | — | Called `promptBeforeIdle` before idle (requires `promptBeforeIdle`) |
+| `onActivity` | `(event?: Event) => void` | — | Called on every throttled activity, not just transitions |
 | `notify` | `NotifyOptions` | — | Fetch a backend endpoint when idle (see below) |
 | `events` | `string[]` | see below | DOM events that count as activity |
+| `immediateEvents` | `string[]` | `[]` | Events that send the user straight to idle, bypassing the countdown |
+| `element` | `Document \| HTMLElement` | `document` | Element to attach activity listeners to |
 | `throttle` | `number` | `500` | Min ms between activity handler calls |
 | `watchVisibility` | `boolean` | `true` | Pause countdown when the tab is hidden |
+| `crossTab` | `boolean` | `false` | Sync idle state across tabs via BroadcastChannel |
+| `leaderElection` | `boolean` | `false` | With `crossTab`, only the leader tab runs `notify` |
+| `name` | `string` | `'default'` | Channel name suffix for multiple independent cross-tab sentinels |
+| `autoStart` | `boolean` | `false` | Call `start()` automatically on creation |
 
 **Default events:** `mousemove`, `keydown`, `scroll`, `click`, `touchstart`
 
@@ -105,6 +143,67 @@ setInterval(() => {
 | `'15m'` | 15 minutes |
 | `'1h'` | 1 hour |
 | `5000` | 5000 milliseconds |
+
+`promptBeforeIdle` and `immediateEvents` timings use the same formats.
+
+---
+
+## Prompt phase
+
+Set `promptBeforeIdle` to get a warning callback a fixed time before the user is
+considered idle. The timeline becomes **active → prompted → idle**.
+
+```js
+const sentinel = createSentinel({
+  timeout: '15m',
+  promptBeforeIdle: '1m',
+  onPrompt: () => showDialog('You will be logged out in 1 minute'),
+  onIdle: () => logout(),
+  onActive: () => hideDialog(),   // fires if the user moves during the prompt
+})
+
+sentinel.start()
+```
+
+`getRemainingMs()` keeps counting down to idle throughout the prompt phase, so it
+drives a countdown in the dialog directly. Any activity during the prompt
+transitions back to active, fires `onActive`, and restarts the full countdown.
+
+---
+
+## Cross-tab sync
+
+With `crossTab: true`, all tabs of the same origin share one idle state over a
+`BroadcastChannel`:
+
+- activity in **any** tab resets **every** tab's countdown
+- idle (and the prompt phase) fire in every tab at once
+
+```js
+const sentinel = createSentinel({
+  timeout: '15m',
+  crossTab: true,
+  leaderElection: true,   // only the leader tab runs `notify`
+  onIdle: () => logout(),
+})
+
+sentinel.start()
+```
+
+Without `leaderElection`, each tab that detects idle locally may fire `notify`;
+with it, exactly one tab (the leader) does. Cross-tab sync no-ops gracefully in
+environments without `BroadcastChannel` — the sentinel still works per-tab.
+
+---
+
+## Immediate events
+
+`immediateEvents` lists events that skip the countdown and mark the user idle
+right away — useful for `blur` or a custom sign-out event.
+
+```js
+createSentinel({ timeout: '15m', immediateEvents: ['blur'] })
+```
 
 ---
 
@@ -162,20 +261,16 @@ The notify request fails silently on network error — `onIdle` always fires reg
 ### Auto-logout with session warning
 
 ```js
-let warningTimer
-
 const sentinel = createSentinel({
-  timeout: '14m',
-  onIdle: () => {
-    showWarning('You will be logged out in 1 minute')
-    warningTimer = setTimeout(() => logout(), 60_000)
-  },
-  onActive: () => {
-    hideWarning()
-    clearTimeout(warningTimer)
-  },
+  timeout: '15m',
+  promptBeforeIdle: '1m',
+  crossTab: true,          // one logout across every tab
+  leaderElection: true,    // ping the backend once, not per tab
+  onPrompt: () => showWarning('You will be logged out in 1 minute'),
+  onActive: () => hideWarning(),
+  onIdle: () => logout(),
   notify: {
-    url: '/api/session/extend',
+    url: '/api/session/end',
     headers: () => ({ Authorization: `Bearer ${getToken()}` }),
   },
 })
@@ -200,6 +295,21 @@ const sentinel = createSentinel({
 
 pollInterval = setInterval(fetchData, 5000)
 sentinel.start()
+```
+
+### Suspend the countdown during a long task
+
+```js
+sentinel.start()
+
+async function uploadLargeFile(file) {
+  sentinel.pause()          // don't log the user out mid-upload
+  try {
+    await upload(file)
+  } finally {
+    sentinel.resume()       // continue from the time that was remaining
+  }
+}
 ```
 
 ### Countdown indicator
