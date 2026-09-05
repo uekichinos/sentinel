@@ -2,6 +2,19 @@
 
 All notable changes to `@uekichinos/sentinel` are documented here.
 
+## [0.3.0] - 2026-09-06
+### Added
+- **Prompt phase** — `promptBeforeIdle` + `onPrompt` fire a warning callback a set time before idle, so "you'll be logged out in 1 minute" no longer needs a hand-rolled `setTimeout`. `sentinel.isPrompted()` reports the warning state
+- **Cross-tab sync** — `crossTab: true` synchronises idle state across tabs of the same origin via BroadcastChannel; activity in any tab resets every tab's countdown and idle fires everywhere at once. No-ops gracefully where BroadcastChannel is unavailable
+- **`leaderElection`** — with `crossTab`, elects a single leader tab so `notify` pings the backend once rather than once per tab. `sentinel.isLeader()` / `sentinel.getTabId()` expose the election state
+- **`sentinel.pause()` / `sentinel.resume()`** — freeze the countdown preserving the time remaining, then continue from where it left off (distinct from `stop()`, which resets)
+- **`onActivity`** — called on every throttled user activity, not just active↔idle transitions; receives the DOM event
+- **`immediateEvents`** — a list of events (e.g. `'blur'`, a custom logout event) that send the user straight to idle, bypassing the countdown
+- **`sentinel.getLastActiveTime()` / `sentinel.getElapsedTime()`** — epoch ms of, and elapsed ms since, the last observed activity
+- **`element`** — scope activity listeners to a container instead of `document`
+- **`autoStart`** — call `start()` automatically when the sentinel is created
+- 34 new tests covering the above additions (79 total)
+
 ## [0.2.0] - 2026-04-12
 ### Added
 - `sentinel.getRemainingMs()` — returns milliseconds until idle; useful for countdown indicators and progress bars
