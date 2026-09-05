@@ -1,6 +1,6 @@
 # @uekichinos/sentinel
 
-[![Socket Badge](https://badge.socket.dev/npm/package/@uekichinos/sentinel/0.2.0)](https://socket.dev/npm/package/@uekichinos/sentinel/overview/0.2.0)
+[![Socket Badge](https://badge.socket.dev/npm/package/@uekichinos/sentinel/0.3.0)](https://socket.dev/npm/package/@uekichinos/sentinel/overview/0.3.0)
 
 Lightweight idle detection for the browser. Fires callbacks and optionally notifies a backend when the user goes inactive. Zero dependencies.
 
